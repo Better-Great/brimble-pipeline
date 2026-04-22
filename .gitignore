@@ -1,10 +1,19 @@
-# Dependencies
+# -----------------------------------------------------------------------------
+# Brimble pipeline monorepo — ignore local deps, builds, secrets, and caches.
+# Verify a path: git check-ignore -v path/to/file
+# Untracked but not ignored: git ls-files -o --exclude-standard
+# -----------------------------------------------------------------------------
+
+# Dependencies (any package root)
 node_modules/
 
-# Build output
+# TypeScript / tooling
+*.tsbuildinfo
+.turbo/
+
+# Build output (any directory named dist or build)
 dist/
 build/
-*.tsbuildinfo
 
 # Test / coverage
 coverage/
@@ -13,6 +22,7 @@ coverage/
 # Env and secrets (keep .env.example tracked)
 .env
 .env.*.local
+.env.local
 
 # Logs and temp
 *.log
@@ -29,11 +39,27 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# Vite
-frontend/dist/
+# -----------------------------------------------------------------------------
+# Explicit monorepo paths (redundant with rules above; helps tools and humans)
+# -----------------------------------------------------------------------------
+backend/node_modules/
+backend/dist/
+backend/coverage/
 
-# Prevent accidental commit of emitted JS next to TS/TSX sources
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# If someone runs npm install inside the sample app
+sample-app/node_modules/
+
+# Prevent accidental commit of emitted JS next to TS sources (if tsc outDir changes)
+backend/src/**/*.js
 frontend/src/**/*.js
+
+# Vite / Vitest caches under package trees
+**/.vite/
+**/.vite-temp/
 
 # Optional local artifacts
 *.swp
