@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Env and secrets (keep .env.example tracked)
+.env
+.env.*.local
+
+# Logs and temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+/tmp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Vite
+frontend/dist/
+
+# Prevent accidental commit of emitted JS next to TS/TSX sources
+frontend/src/**/*.js
+
+# Optional local artifacts
+*.swp
+*.swo

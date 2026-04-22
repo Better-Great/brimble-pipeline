@@ -1,0 +1,94 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      - CADDY_SITE_ADDRESS=${CADDY_SITE_ADDRESS}
+      - CADDY_ADMIN_LISTEN_ADDR=${CADDY_ADMIN_LISTEN_ADDR}
+      - CADDY_BACKEND_UPSTREAM=${CADDY_BACKEND_UPSTREAM}
+      - CADDY_FRONTEND_UPSTREAM=${CADDY_FRONTEND_UPSTREAM}
+    ports:
+      - "${CADDY_HTTP_PORT}:80"
+      - "${CADDY_ADMIN_PORT}:2019"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - brimble-net
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        APP_UID: ${APP_UID}
+        APP_GID: ${APP_GID}
+        DOCKER_SOCK_GID: ${DOCKER_SOCK_GID}
+        RAILPACK_VERSION: ${RAILPACK_VERSION}
+    group_add:
+      - ${DOCKER_SOCK_GID}
+    expose:
+      - "${PORT}"
+    environment:
+      - PORT=${PORT}
+      - POSTGRES_URL=${POSTGRES_URL}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - RAILPACK_BIN=${RAILPACK_BIN}
+      - CADDY_ADMIN_URL=${CADDY_ADMIN_URL}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS \"http://127.0.0.1:$$PORT/health\" >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - brimble-net
+
+  frontend:
+    environment:
+      - API_URL=${API_URL}
+    build:
+      context: ./frontend
+      args:
+        API_URL: ${API_URL}
+        FRONTEND_APP_UID: ${FRONTEND_APP_UID}
+        FRONTEND_APP_GID: ${FRONTEND_APP_GID}
+    depends_on:
+      - backend
+    networks:
+      - brimble-net
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - brimble-net
+
+volumes:
+  pgdata:
+  caddy_data:
+
+networks:
+  brimble-net:
+    driver: bridge

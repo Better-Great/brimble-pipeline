@@ -1,0 +1,17 @@
+{
+  admin {$CADDY_ADMIN_LISTEN_ADDR}
+}
+
+{$CADDY_SITE_ADDRESS} {
+  handle /health* {
+    reverse_proxy {$CADDY_BACKEND_UPSTREAM}
+  }
+
+  handle /api/* {
+    reverse_proxy {$CADDY_BACKEND_UPSTREAM}
+  }
+
+  handle {
+    reverse_proxy {$CADDY_FRONTEND_UPSTREAM}
+  }
+}
