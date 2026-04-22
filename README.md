@@ -47,6 +47,10 @@ stat -c '%g' /var/run/docker.sock
 4. `docker compose up --build`
 5. Open `http://localhost:${CADDY_HTTP_PORT}` (defaults to `http://localhost` when `CADDY_HTTP_PORT=80`)
 
+### Postgres schema (Compose)
+
+`docker-compose.yml` mounts `backend/src/db/migrations/` into the container as `/docker-entrypoint-initdb.d`. The official Postgres image executes `*.sql` there in filename order when the `pgdata` volume is **new and empty** (first cluster init). Normal restarts do not re-run those scripts. To apply them again on a clean database, remove the volume (for example `docker compose down -v`, which deletes stored data) and bring the stack back up.
+
 ## Health checks (for orchestration / sidecars)
 
 - **Inside Docker network**: `GET http://backend:${PORT}/health` (Compose DNS service name `backend`, port from `PORT` in `.env`)

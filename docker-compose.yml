@@ -82,6 +82,8 @@ services:
       start_period: 10s
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Runs *.sql in sort order once, when $PGDATA is empty (first volume use only).
+      - ./backend/src/db/migrations:/docker-entrypoint-initdb.d:ro
     networks:
       - brimble-net
 
