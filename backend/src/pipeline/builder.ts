@@ -12,12 +12,13 @@ export async function buildImage(deploymentId: string, sourcePath: string): Prom
   const imageTag = `brimble-deploy-${safeDeploymentId}`;
   const railpackBin = process.env.RAILPACK_BIN || "railpack";
 
-  const child = spawn(railpackBin, ["build", sourcePath, "--tag", imageTag], {
+  const child = spawn(railpackBin, ["build", sourcePath, "--name", imageTag], {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
   let lineNumber = 0;
   const lastLines: string[] = [];
+  let writeChain = Promise.resolve();
 
   const handleLine = async (content: string) => {
     lineNumber += 1;
@@ -33,14 +34,17 @@ export async function buildImage(deploymentId: string, sourcePath: string): Prom
   const stdoutRl = createInterface({ input: child.stdout });
   const stderrRl = createInterface({ input: child.stderr });
 
-  const streamPromises: Promise<void>[] = [];
-
   stdoutRl.on("line", (line) => {
-    streamPromises.push(handleLine(line));
+    writeChain = writeChain.then(() => handleLine(line));
   });
   stderrRl.on("line", (line) => {
-    streamPromises.push(handleLine(line));
+    writeChain = writeChain.then(() => handleLine(line));
   });
+
+  const buildTimeoutMs = Number(process.env.RAILPACK_BUILD_TIMEOUT_MS || 15 * 60_000);
+  const timeout = setTimeout(() => {
+    child.kill("SIGTERM");
+  }, buildTimeoutMs);
 
   const exitCode = await new Promise<number>((resolve, reject) => {
     child.on("error", reject);
@@ -48,8 +52,9 @@ export async function buildImage(deploymentId: string, sourcePath: string): Prom
       resolve(code ?? 1);
     });
   });
+  clearTimeout(timeout);
 
-  await Promise.all(streamPromises);
+  await writeChain;
 
   if (exitCode === 0) {
     return imageTag;

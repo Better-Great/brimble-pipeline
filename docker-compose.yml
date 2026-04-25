@@ -1,4 +1,12 @@
 services:
+  buildkit:
+    image: moby/buildkit:latest
+    container_name: buildkit
+    privileged: true
+    restart: unless-stopped
+    networks:
+      - brimble-net
+
   caddy:
     image: caddy:2-alpine
     environment:
@@ -15,12 +23,16 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - brimble-net
 
   backend:
+    image: bettergreat/brimble-backend:latest
     build:
       context: ./backend
       args:
@@ -28,8 +40,6 @@ services:
         APP_GID: ${APP_GID}
         DOCKER_SOCK_GID: ${DOCKER_SOCK_GID}
         RAILPACK_VERSION: ${RAILPACK_VERSION}
-    group_add:
-      - ${DOCKER_SOCK_GID}
     expose:
       - "${PORT}"
     environment:
@@ -38,10 +48,21 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - CORS_ORIGIN=${CORS_ORIGIN}
       - RAILPACK_BIN=${RAILPACK_BIN}
+      - RAILPACK_BUILD_TIMEOUT_MS=${RAILPACK_BUILD_TIMEOUT_MS}
+      - GIT_CLONE_TIMEOUT_MS=${GIT_CLONE_TIMEOUT_MS}
+      - BUILDKIT_HOST=${BUILDKIT_HOST}
+      - DOCKER_NETWORK=${DOCKER_NETWORK}
+      - DEPLOYMENT_BASE_URL=${DEPLOYMENT_BASE_URL}
+      - DEPLOYMENT_PORT_MIN=${DEPLOYMENT_PORT_MIN}
+      - DEPLOYMENT_PORT_MAX=${DEPLOYMENT_PORT_MAX}
+      - CONTAINER_INTERNAL_PORT_PRIMARY=${CONTAINER_INTERNAL_PORT_PRIMARY}
+      - CONTAINER_INTERNAL_PORT_FALLBACK=${CONTAINER_INTERNAL_PORT_FALLBACK}
       - CADDY_ADMIN_URL=${CADDY_ADMIN_URL}
+      - CADDY_ADMIN_ORIGIN=${CADDY_ADMIN_ORIGIN}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS \"http://127.0.0.1:$$PORT/health\" >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS \"http://127.0.0.1:$$PORT/ready\" >/dev/null"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -51,10 +72,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      buildkit:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - brimble-net
 
   frontend:
+    image: bettergreat/brimble-frontend:latest
     environment:
       - API_URL=${API_URL}
     build:
@@ -65,6 +90,7 @@ services:
         FRONTEND_APP_GID: ${FRONTEND_APP_GID}
     depends_on:
       - backend
+    restart: unless-stopped
     networks:
       - brimble-net
 
@@ -86,6 +112,7 @@ services:
       - ./backend/src/db/migrations:/docker-entrypoint-initdb.d:ro
     networks:
       - brimble-net
+    restart: unless-stopped
 
 volumes:
   pgdata:
@@ -93,4 +120,5 @@ volumes:
 
 networks:
   brimble-net:
+    name: brimble-net
     driver: bridge

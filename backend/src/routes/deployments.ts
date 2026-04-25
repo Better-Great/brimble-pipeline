@@ -32,8 +32,8 @@ type DeploymentRow = {
   updated_at: Date;
 };
 
-function containerNameFromDeploymentId(deploymentId: string): string {
-  return `deploy-${deploymentId.toLowerCase().replace(/[^a-z0-9-]/g, "")}`;
+function isLikelyGitUrl(value: string): boolean {
+  return /^(https?:\/\/|git@|ssh:\/\/)/i.test(value);
 }
 
 async function parseCreatePayload(request: FastifyRequest) {
@@ -89,6 +89,9 @@ async function parseCreatePayload(request: FastifyRequest) {
     if (sourceType === "git" && !sourceUrl) {
       return { error: "sourceUrl is required for sourceType=git." as const };
     }
+    if (sourceType === "git" && sourceUrl && !isLikelyGitUrl(sourceUrl)) {
+      return { error: "sourceUrl must be a valid git URL." as const };
+    }
 
     return {
       deploymentId,
@@ -105,6 +108,9 @@ async function parseCreatePayload(request: FastifyRequest) {
 
   if (body.sourceType === "git" && !body.sourceUrl) {
     return { error: "sourceUrl is required for sourceType=git." as const };
+  }
+  if (body.sourceType === "git" && body.sourceUrl && !isLikelyGitUrl(body.sourceUrl)) {
+    return { error: "sourceUrl must be a valid git URL." as const };
   }
 
   if (body.sourceType === "upload") {
@@ -195,7 +201,7 @@ const deploymentsRoutes: FastifyPluginAsync = async (fastify) => {
 
     const deployment = lookup.rows[0];
     if (deployment.container_id) {
-      await stopContainer(containerNameFromDeploymentId(request.params.id));
+      await stopContainer(deployment.container_id);
     }
     if (deployment.container_port) {
       releaseContainerPort(deployment.container_port);

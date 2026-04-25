@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 
+import { query } from "../db/client.js";
 import { getLogsForDeployment, logEmitter } from "../pipeline/logStore.js";
 
 const logsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -9,6 +10,7 @@ const logsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.raw.setHeader("Content-Type", "text/event-stream");
     reply.raw.setHeader("Cache-Control", "no-cache");
     reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.setHeader("X-Accel-Buffering", "no");
     reply.raw.flushHeaders();
 
     const writeEvent = (payload: unknown) => {
@@ -24,12 +26,30 @@ const logsRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
+    const deploymentState = await query<{ status: string }>(
+      "SELECT status FROM deployments WHERE id = $1",
+      [deploymentId],
+    );
+    const currentStatus = deploymentState.rows[0]?.status;
+    if (currentStatus === "running" || currentStatus === "failed") {
+      writeEvent({ done: true });
+      reply.raw.end();
+      return reply;
+    }
+
+    const heartbeat = setInterval(() => {
+      if (!reply.raw.writableEnded) {
+        reply.raw.write(": ping\n\n");
+      }
+    }, 15_000);
+
     let closed = false;
     const cleanup = () => {
       if (closed) {
         return;
       }
       closed = true;
+      clearInterval(heartbeat);
       logEmitter.off(deploymentId, onLog);
       logEmitter.off(`done:${deploymentId}`, onDone);
       if (!reply.raw.writableEnded) {

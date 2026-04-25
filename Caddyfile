@@ -1,9 +1,16 @@
 {
-  admin {$CADDY_ADMIN_LISTEN_ADDR}
+  admin {$CADDY_ADMIN_LISTEN_ADDR} {
+    origins *
+    enforce_origin false
+  }
 }
 
 {$CADDY_SITE_ADDRESS} {
   handle /health* {
+    reverse_proxy {$CADDY_BACKEND_UPSTREAM}
+  }
+
+  handle /ready* {
     reverse_proxy {$CADDY_BACKEND_UPSTREAM}
   }
 

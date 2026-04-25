@@ -16,7 +16,7 @@ export async function cloneRepo(gitUrl: string, targetDir: string): Promise<void
 
   let lineNumber = 0;
   const outputLines: string[] = [];
-  const streamPromises: Promise<void>[] = [];
+  let writeChain = Promise.resolve();
 
   const handleLine = async (content: string) => {
     lineNumber += 1;
@@ -29,11 +29,16 @@ export async function cloneRepo(gitUrl: string, targetDir: string): Promise<void
   const stderrRl = createInterface({ input: child.stderr });
 
   stdoutRl.on("line", (line) => {
-    streamPromises.push(handleLine(line));
+    writeChain = writeChain.then(() => handleLine(line));
   });
   stderrRl.on("line", (line) => {
-    streamPromises.push(handleLine(line));
+    writeChain = writeChain.then(() => handleLine(line));
   });
+
+  const cloneTimeoutMs = Number(process.env.GIT_CLONE_TIMEOUT_MS || 2 * 60_000);
+  const timeout = setTimeout(() => {
+    child.kill("SIGTERM");
+  }, cloneTimeoutMs);
 
   const exitCode = await new Promise<number>((resolve, reject) => {
     child.on("error", reject);
@@ -41,8 +46,9 @@ export async function cloneRepo(gitUrl: string, targetDir: string): Promise<void
       resolve(code ?? 1);
     });
   });
+  clearTimeout(timeout);
 
-  await Promise.all(streamPromises);
+  await writeChain;
 
   if (exitCode !== 0) {
     const lastMessage =

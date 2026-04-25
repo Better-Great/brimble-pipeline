@@ -64,3 +64,4 @@ frontend/src/**/*.js
 # Optional local artifacts
 *.swp
 *.swo
+jd.md

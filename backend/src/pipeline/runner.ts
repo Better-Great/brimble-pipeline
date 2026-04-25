@@ -4,6 +4,8 @@ import { execFile } from "node:child_process";
 import { getAvailablePort, releasePort } from "./portManager.js";
 
 const execFileAsync = promisify(execFile);
+const primaryInternalPort = Number(process.env.CONTAINER_INTERNAL_PORT_PRIMARY || 3000);
+const fallbackInternalPort = Number(process.env.CONTAINER_INTERNAL_PORT_FALLBACK || 8080);
 
 function containerNameFromDeploymentId(deploymentId: string): string {
   return `deploy-${deploymentId.toLowerCase().replace(/[^a-z0-9-]/g, "")}`;
@@ -12,6 +14,7 @@ function containerNameFromDeploymentId(deploymentId: string): string {
 async function runDocker(imageTag: string, deploymentId: string, internalPort: number) {
   const port = await getFreePort();
   const containerName = containerNameFromDeploymentId(deploymentId);
+  const dockerNetwork = await resolveDockerNetwork();
   try {
     const { stdout } = await execFileAsync("docker", [
       "run",
@@ -19,7 +22,7 @@ async function runDocker(imageTag: string, deploymentId: string, internalPort: n
       "--name",
       containerName,
       "--network",
-      "brimble-net",
+      dockerNetwork,
       "-p",
       `${port}:${internalPort}`,
       imageTag,
@@ -36,14 +39,42 @@ async function runDocker(imageTag: string, deploymentId: string, internalPort: n
   }
 }
 
+async function resolveDockerNetwork(): Promise<string> {
+  const explicit = process.env.DOCKER_NETWORK;
+  if (explicit && explicit.trim().length > 0) {
+    return explicit.trim();
+  }
+
+  const { stdout } = await execFileAsync("docker", ["network", "ls", "--format", "{{.Name}}"]);
+  const names = stdout
+    .split("\n")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (names.includes("brimble-net")) {
+    return "brimble-net";
+  }
+
+  const suffixed = names.find((name) => name.endsWith("_brimble-net"));
+  if (suffixed) {
+    return suffixed;
+  }
+
+  throw new Error(
+    "Could not determine docker network for deployments. Set DOCKER_NETWORK explicitly.",
+  );
+}
+
 export async function runContainer(
   deploymentId: string,
   imageTag: string,
 ): Promise<{ containerId: string; port: number }> {
+  const containerName = containerNameFromDeploymentId(deploymentId);
+  await stopContainer(containerName);
   try {
-    return await runDocker(imageTag, deploymentId, 3000);
+    return await runDocker(imageTag, deploymentId, primaryInternalPort);
   } catch {
-    return runDocker(imageTag, deploymentId, 8080);
+    await stopContainer(containerName);
+    return runDocker(imageTag, deploymentId, fallbackInternalPort);
   }
 }
 

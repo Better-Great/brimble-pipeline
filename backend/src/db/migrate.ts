@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -6,13 +6,34 @@ import { pool } from "./client.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const migrationFilePath = path.join(__dirname, "migrations", "001_initial.sql");
+const migrationsDir = process.env.MIGRATIONS_DIR || path.join(__dirname, "migrations");
+
+async function readMigrationFiles(dir: string): Promise<Array<{ name: string; sql: string }>> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".sql"))
+    .map((entry) => entry.name)
+    .sort((a, b) => a.localeCompare(b));
+
+  if (files.length === 0) {
+    throw new Error(`No SQL migration files found in ${dir}`);
+  }
+
+  const migrations: Array<{ name: string; sql: string }> = [];
+  for (const file of files) {
+    const sql = await readFile(path.join(dir, file), "utf8");
+    migrations.push({ name: file, sql });
+  }
+  return migrations;
+}
 
 export async function runMigrations(): Promise<void> {
-  const sql = await readFile(migrationFilePath, "utf8");
-
+  const migrations = await readMigrationFiles(migrationsDir);
   try {
-    await pool.query(sql);
+    for (const migration of migrations) {
+      await pool.query(migration.sql);
+      console.info(`Migration applied: ${migration.name}`);
+    }
     console.info("Migrations completed successfully.");
   } catch (error) {
     console.error("Migration run failed:", error);

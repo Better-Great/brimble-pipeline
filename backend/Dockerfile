@@ -1,10 +1,12 @@
-FROM node:20-alpine AS build
+FROM node:20-bookworm-slim AS build
 
 ARG RAILPACK_VERSION=v0.23.0
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates curl tar \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl tar \
+  && rm -rf /var/lib/apt/lists/* \
   && npm config set fetch-retries 5 \
   && npm config set fetch-retry-mintimeout 20000 \
   && npm config set fetch-retry-maxtimeout 120000
@@ -33,13 +35,15 @@ RUN set -eux; \
 COPY src ./src
 RUN npm run build
 
-FROM node:20-alpine AS runtime
+FROM node:20-bookworm-slim AS runtime
 
 ARG APP_UID=10001
 ARG APP_GID=10001
 ARG DOCKER_SOCK_GID=0
 
-RUN apk add --no-cache ca-certificates curl docker-cli dumb-init git \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl docker.io dumb-init git gosu \
+  && rm -rf /var/lib/apt/lists/* \
   && npm config set fetch-retries 5 \
   && npm config set fetch-retry-mintimeout 20000 \
   && npm config set fetch-retry-maxtimeout 120000
@@ -52,23 +56,22 @@ COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
+COPY src/db/migrations ./dist/db/migrations
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-RUN addgroup -g "${APP_GID}" brimble \
-  && adduser -D -H -u "${APP_UID}" -G brimble brimble \
-  && if [ "${DOCKER_SOCK_GID}" -eq 0 ]; then \
-    adduser brimble root; \
-  else \
-    addgroup -g "${DOCKER_SOCK_GID}" dockersock; \
-    adduser brimble dockersock; \
+RUN groupadd -g "${APP_GID}" brimble \
+  && useradd -r -u "${APP_UID}" -g brimble -m -d /home/brimble brimble \
+  && if [ "${DOCKER_SOCK_GID}" -ne 0 ]; then \
+    groupadd -g "${DOCKER_SOCK_GID}" dockersock; \
+    usermod -aG dockersock brimble; \
   fi \
   && mkdir -p /tmp/brimble /tmp/uploads \
-  && chown -R brimble:brimble /app /tmp/brimble /tmp/uploads
-
-USER brimble
+  && chown -R brimble:brimble /app /tmp/brimble /tmp/uploads \
+  && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-ENTRYPOINT ["dumb-init", "--"]
+ENTRYPOINT ["dumb-init", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]

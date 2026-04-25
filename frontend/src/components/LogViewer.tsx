@@ -15,6 +15,9 @@ export function LogViewer({ deploymentId, isActive }: Props) {
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [status, setStatus] = useState<"connecting" | "streaming" | "done" | "error">("connecting");
   const containerRef = useRef<HTMLDivElement>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
+  const doneRef = useRef(false);
+  const latestLineRef = useRef(0);
 
   useEffect(() => {
     if (!isActive) {
@@ -23,31 +26,60 @@ export function LogViewer({ deploymentId, isActive }: Props) {
 
     setLogs([]);
     setStatus("connecting");
-    const eventSource = new EventSource(`/api/deployments/${deploymentId}/logs`);
+    doneRef.current = false;
+    latestLineRef.current = 0;
 
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data) as { done?: boolean; line?: number; content?: string; deploymentId?: string };
-        if (payload.done) {
-          setStatus("done");
-          eventSource.close();
-          return;
+    let eventSource: EventSource | null = null;
+    const connect = () => {
+      eventSource = new EventSource(`/api/deployments/${deploymentId}/logs`);
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as {
+            done?: boolean;
+            line?: number;
+            content?: string;
+            deploymentId?: string;
+          };
+          if (payload.done) {
+            doneRef.current = true;
+            setStatus("done");
+            eventSource?.close();
+            return;
+          }
+          if (typeof payload.line === "number" && typeof payload.content === "string") {
+            setLogs((current) => {
+              if (payload.line === undefined || payload.line <= latestLineRef.current) {
+                return current;
+              }
+              latestLineRef.current = payload.line;
+              return [...current, payload as LogLine];
+            });
+            setStatus("streaming");
+          }
+        } catch {
+          setStatus("error");
         }
-        if (typeof payload.line === "number" && typeof payload.content === "string") {
-          setLogs((current) => [...current, payload as LogLine]);
-          setStatus("streaming");
+      };
+
+      eventSource.onerror = () => {
+        eventSource?.close();
+        if (!doneRef.current) {
+          setStatus("error");
+          reconnectTimeoutRef.current = window.setTimeout(() => {
+            setStatus("connecting");
+            connect();
+          }, 1500);
         }
-      } catch {
-        setStatus("error");
-      }
+      };
     };
 
-    eventSource.onerror = () => {
-      setStatus("error");
-    };
+    connect();
 
     return () => {
-      eventSource.close();
+      if (reconnectTimeoutRef.current !== null) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      eventSource?.close();
     };
   }, [deploymentId, isActive]);
 

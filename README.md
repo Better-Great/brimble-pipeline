@@ -6,6 +6,11 @@ Brimble Pipeline is a lightweight self-hosted deployment system that turns sourc
 
 The stack is intentionally simple: Fastify for APIs, plain `pg` for persistence, Docker for runtime isolation, Railpack for image builds, Caddy for routing, and a React dashboard for operators.
 
+Design rationale and delivery notes live under `docs/`:
+
+- `docs/approach.md`
+- `docs/dockerhub-environment-agnostic.md`
+
 ## Architecture
 
 ```text
@@ -68,6 +73,15 @@ This is optional; reviewers will primarily use Docker Compose.
 - **Backend**: `cd backend && npm run test` (coverage: `npm run test:coverage`)
 - **Frontend**: `cd frontend && npm run test` (coverage: `npm run test:coverage`)
 
+## GitHub Actions CI
+
+CI is defined in `.github/workflows/ci.yml` and runs on pushes to `main` plus all pull requests:
+
+- backend test job (`npm ci && npm test`)
+- frontend test job (`npm ci && npm test`)
+- compose validation job (`docker compose config -q`)
+- backend/frontend image build verification (`docker compose build backend frontend`)
+
 ## Environment variables
 
 | Variable | Purpose | Example |
@@ -77,9 +91,20 @@ This is optional; reviewers will primarily use Docker Compose.
 | `POSTGRES_USER` | Postgres username | `postgres` |
 | `POSTGRES_PASSWORD` | Postgres password | `postgres` |
 | `PORT` | Backend listen port | `3000` |
+| `CORS_ORIGIN` | Allowed CORS origin(s) for backend API (`*` for demo) | `*` |
 | `RAILPACK_BIN` | Railpack binary path | `/usr/local/bin/railpack` |
 | `RAILPACK_VERSION` | Railpack release tag used when building the backend image | `v0.23.0` |
+| `RAILPACK_BUILD_TIMEOUT_MS` | Railpack build timeout before process termination | `900000` |
+| `GIT_CLONE_TIMEOUT_MS` | Git clone timeout before process termination | `120000` |
+| `BUILDKIT_HOST` | BuildKit target used by Railpack (Compose-managed daemon) | `docker-container://buildkit` |
+| `DOCKER_NETWORK` | Docker network used when running deployed app containers | `brimble-net` |
+| `DEPLOYMENT_BASE_URL` | Public base URL used when constructing deployment URLs | `http://localhost` |
+| `DEPLOYMENT_PORT_MIN` | Minimum host port for deployed containers | `4000` |
+| `DEPLOYMENT_PORT_MAX` | Maximum host port for deployed containers | `5000` |
+| `CONTAINER_INTERNAL_PORT_PRIMARY` | First internal app port attempted in deployment containers | `3000` |
+| `CONTAINER_INTERNAL_PORT_FALLBACK` | Fallback internal app port attempted if primary fails | `8080` |
 | `CADDY_ADMIN_URL` | Caddy admin API base URL | `http://caddy:2019` |
+| `CADDY_ADMIN_ORIGIN` | Origin header used for Caddy Admin API requests | `//0.0.0.0:2019` |
 | `API_URL` | Used for `vite dev` proxying + passed as a Docker build-arg for `vite build` | `http://backend:3000` |
 | `CADDY_HTTP_PORT` | Host port published to Caddy `:80` | `80` |
 | `CADDY_ADMIN_PORT` | Host port published to Caddy admin `:2019` | `2019` |
@@ -109,6 +134,48 @@ This is optional; reviewers will primarily use Docker Compose.
 - No authentication/authorization yet.
 - In-memory port and log counters reset on backend restart.
 - Pipeline retry and cleanup policies are minimal.
+
+## Verification runbook
+
+Use this sequence to validate evaluator expectations from a clean state:
+
+1. `cp .env.example .env`
+2. `docker compose down -v`
+3. `docker compose up -d --build`
+4. `curl http://localhost/health` and `curl http://localhost/ready`
+5. `docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\dt'`
+6. `cd backend && npm test`
+7. `cd frontend && npm test`
+
+This confirms compose startup, Caddy ingress, backend readiness, and DB schema creation.
+
+## Docker Hub workflow (build once, run anywhere)
+
+With Docker Hub login already in place, publish images:
+
+```bash
+docker compose build backend frontend
+docker compose push backend frontend
+```
+
+Then on any host (same repo and `.env` contract), run:
+
+```bash
+docker compose pull backend frontend
+docker compose up -d
+```
+
+Because `backend` and `frontend` now declare both explicit image names (`bettergreat/brimble-backend:latest`, `bettergreat/brimble-frontend:latest`) and `build`, you can either:
+
+- build locally when iterating (`docker compose up --build`), or
+- pull prebuilt images for reproducible environment-agnostic runs (`docker compose pull && up -d`).
+
+## Brimble deploy + feedback
+
+This section is part of the submission scoring rubric.
+
+- **Deployed link:** _add your Brimble URL here_
+- **Feedback write-up:** _add 1-2 candid paragraphs on UX friction, bugs, and suggested improvements_
 
 ## Rough time spent
 

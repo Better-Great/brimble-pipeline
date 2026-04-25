@@ -1,6 +1,8 @@
 import net from "node:net";
 
 const usedPorts = new Set<number>();
+const defaultMinPort = Number(process.env.DEPLOYMENT_PORT_MIN || 4000);
+const defaultMaxPort = Number(process.env.DEPLOYMENT_PORT_MAX || 5000);
 
 function canBind(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -14,7 +16,7 @@ function canBind(port: number): Promise<boolean> {
 }
 
 export async function getAvailablePort(): Promise<number> {
-  for (let port = 4000; port <= 5000; port += 1) {
+  for (let port = defaultMinPort; port <= defaultMaxPort; port += 1) {
     if (usedPorts.has(port)) {
       continue;
     }
@@ -23,7 +25,7 @@ export async function getAvailablePort(): Promise<number> {
       return port;
     }
   }
-  throw new Error("No available port found in range 4000-5000.");
+  throw new Error(`No available port found in range ${defaultMinPort}-${defaultMaxPort}.`);
 }
 
 export function releasePort(port: number): void {

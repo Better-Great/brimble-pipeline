@@ -26,7 +26,10 @@ describe("caddy pipeline adapter", () => {
       "http://caddy:2019/config/apps/http/servers/srv0/routes",
       expect.objectContaining({
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "//0.0.0.0:2019",
+        },
       }),
     );
   });
@@ -50,7 +53,10 @@ describe("caddy pipeline adapter", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       "http://caddy:2019/config/apps/http/servers/srv0/routes/1",
-      expect.objectContaining({ method: "DELETE" }),
+      expect.objectContaining({
+        method: "DELETE",
+        headers: { Origin: "//0.0.0.0:2019" },
+      }),
     );
   });
 });

@@ -1,15 +1,15 @@
 import { createReadStream } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import unzipper from "unzipper";
 
 import { query, updateDeployment } from "../db/client.js";
 import { buildImage } from "./builder.js";
-import { addRoute } from "./caddy.js";
+import { addRoute, removeRoute } from "./caddy.js";
 import { cloneRepo } from "./gitClone.js";
 import { appendLog, logEmitter } from "./logStore.js";
-import { runContainer } from "./runner.js";
+import { releaseContainerPort, runContainer, stopContainer } from "./runner.js";
 
 type DeploymentRow = {
   id: string;
@@ -23,7 +23,10 @@ async function extractUploadZip(deploymentId: string, workDir: string): Promise<
 }
 
 export async function runPipeline(deploymentId: string): Promise<void> {
+  const workDir = path.join("/tmp/brimble", deploymentId);
   let url: string | undefined;
+  let containerName: string | undefined;
+  let containerPort: number | undefined;
   try {
     console.log(`Starting pipeline for ${deploymentId}`);
     const deploymentResult = await query<DeploymentRow>(
@@ -35,7 +38,6 @@ export async function runPipeline(deploymentId: string): Promise<void> {
     }
     const deployment = deploymentResult.rows[0];
 
-    const workDir = path.join("/tmp/brimble", deploymentId);
     await mkdir(workDir, { recursive: true });
 
     await updateDeployment(deploymentId, { status: "building" });
@@ -60,6 +62,8 @@ export async function runPipeline(deploymentId: string): Promise<void> {
 
     console.log("Starting container...");
     const { containerId, port } = await runContainer(deploymentId, imageTag);
+    containerName = `deploy-${deploymentId.toLowerCase().replace(/[^a-z0-9-]/g, "")}`;
+    containerPort = port;
     console.log(`Container running on port ${port}`);
     await updateDeployment(deploymentId, { container_id: containerId, container_port: port });
 
@@ -69,10 +73,28 @@ export async function runPipeline(deploymentId: string): Promise<void> {
     console.log(`Deployment complete: ${url}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown pipeline error";
+    if (url) {
+      try {
+        await removeRoute(deploymentId);
+      } catch {
+        // Best-effort route cleanup.
+      }
+    }
+    if (containerName) {
+      try {
+        await stopContainer(containerName);
+      } catch {
+        // Best-effort container cleanup.
+      }
+    }
+    if (containerPort) {
+      releaseContainerPort(containerPort);
+    }
     await updateDeployment(deploymentId, { status: "failed", error_message: message });
     await appendLog(deploymentId, `[Pipeline failed]: ${message}`);
     throw error;
   } finally {
+    await rm(workDir, { recursive: true, force: true });
     logEmitter.emit(`done:${deploymentId}`, { done: true });
   }
 }
