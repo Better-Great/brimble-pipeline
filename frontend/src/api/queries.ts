@@ -8,6 +8,25 @@ import {
 } from "@tanstack/react-query";
 
 const API_BASE = "/api";
+const REQUEST_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Request timed out. Check that backend API is reachable.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export type Deployment = {
   id: string;
@@ -45,7 +64,7 @@ export function useDeployments(): UseQueryResult<Deployment[]> {
   return useQuery({
     queryKey: ["deployments"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/deployments`);
+      const response = await fetchWithTimeout(`${API_BASE}/deployments`);
       if (!response.ok) {
         throw new Error("Failed to load deployments");
       }
@@ -59,7 +78,7 @@ export function useDeployment(id: string): UseQueryResult<Deployment> {
   return useQuery({
     queryKey: ["deployments", id],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/deployments/${id}`);
+      const response = await fetchWithTimeout(`${API_BASE}/deployments/${id}`);
       if (!response.ok) {
         throw new Error("Failed to load deployment");
       }
@@ -86,12 +105,12 @@ export function useCreateDeployment(): UseMutationResult<Deployment, Error, Crea
           if (payload.file) {
             formData.append("file", payload.file, payload.file.name);
           }
-          return fetch(`${API_BASE}/deployments`, {
+          return fetchWithTimeout(`${API_BASE}/deployments`, {
             method: "POST",
             body: formData,
           });
         }
-        return fetch(`${API_BASE}/deployments`, {
+        return fetchWithTimeout(`${API_BASE}/deployments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -114,7 +133,7 @@ export function useDeleteDeployment(): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id) => {
-      const response = await fetch(`${API_BASE}/deployments/${id}`, { method: "DELETE" });
+      const response = await fetchWithTimeout(`${API_BASE}/deployments/${id}`, { method: "DELETE" });
       if (!response.ok && response.status !== 204) {
         throw new Error("Failed to delete deployment");
       }

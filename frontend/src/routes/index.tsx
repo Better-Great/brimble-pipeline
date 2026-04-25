@@ -3,13 +3,17 @@ import { DeploymentList } from "../components/DeploymentList";
 
 export function HomePage() {
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24, color: "#fff" }}>
-      <header style={{ marginBottom: 18 }}>
-        <h1 style={{ marginBottom: 4 }}>Brimble Pipeline</h1>
-        <p style={{ margin: 0, color: "#b5b5b5" }}>Build, deploy, and stream logs from one dashboard.</p>
+    <main className="container">
+      <header className="hero">
+        <h1 className="hero__title">Brimble Pipeline</h1>
+        <p className="hero__subtitle">Build, deploy, and stream logs from one dashboard.</p>
       </header>
       <DeployForm />
-      <hr style={{ margin: "22px 0", borderColor: "#2a2a2a" }} />
+      <hr className="section-divider" />
+      <section className="section-head">
+        <h2 className="section-head__title">Deployments</h2>
+        <p className="section-head__subtitle">Track status, open live logs, and verify deployed URLs.</p>
+      </section>
       <DeploymentList />
     </main>
   );

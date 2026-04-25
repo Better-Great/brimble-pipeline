@@ -16,7 +16,9 @@ const statusColors: Record<Deployment["status"], string> = {
 };
 
 export function DeploymentCard({ deployment }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(
+    () => deployment.status === "pending" || deployment.status === "building" || deployment.status === "deploying",
+  );
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const deleteMutation = useDeleteDeployment();
 
@@ -32,14 +34,11 @@ export function DeploymentCard({ deployment }: Props) {
   };
 
   return (
-    <article
-      onClick={() => setExpanded((state) => !state)}
-      style={{ border: "1px solid #333", borderRadius: 10, padding: 14, background: "#171717", cursor: "pointer" }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+    <article className="card deployment-card">
+      <div className="deployment-card__header">
         <div>
-          <h3 style={{ margin: "0 0 8px" }}>{deployment.name}</h3>
-          <span style={{ padding: "2px 10px", borderRadius: 999, background: statusColors[deployment.status], color: "#fff", fontSize: 12 }}>
+          <h3 className="deployment-card__name">{deployment.name}</h3>
+          <span className="status-badge" style={{ background: statusColors[deployment.status] }}>
             {deployment.status}
           </span>
         </div>
@@ -47,19 +46,33 @@ export function DeploymentCard({ deployment }: Props) {
           type="button"
           onClick={onDelete}
           disabled={deleteMutation.isPending}
-          style={{ height: 32, background: "#3b1c1c", color: "#ff9c9c", border: "1px solid #664", borderRadius: 8 }}
+          className="btn btn--danger"
         >
           {deleteMutation.isPending ? "Deleting..." : "Delete"}
         </button>
       </div>
-      <p style={{ margin: "10px 0 0" }}>Image: {deployment.image_tag || "-"}</p>
-      <p style={{ margin: "6px 0 0" }}>
-        URL: {deployment.url ? <a href={deployment.url} target="_blank" rel="noreferrer">{deployment.url}</a> : "-"}
+      <div className="deployment-card__controls">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setExpanded((state) => !state)}
+          aria-expanded={expanded}
+        >
+          {expanded ? "Hide logs" : "Show logs"}
+        </button>
+      </div>
+      <p className="deployment-detail">
+        <strong>Image:</strong> {deployment.image_tag || "-"}
       </p>
-      <p style={{ margin: "6px 0 0", color: "#bbb" }}>
+      <p className="deployment-detail">
+        <strong>URL:</strong>{" "}
+        {deployment.url ? <a href={deployment.url} target="_blank" rel="noreferrer">{deployment.url}</a> : "-"}
+      </p>
+      <p className="deployment-date">
         Created: {new Date(deployment.created_at).toLocaleString()}
       </p>
-      {deleteError ? <p style={{ margin: "8px 0 0", color: "#ff6666" }}>{deleteError}</p> : null}
+      {deployment.error_message ? <p className="error-text">{deployment.error_message}</p> : null}
+      {deleteError ? <p className="error-text">{deleteError}</p> : null}
       <LogViewer deploymentId={deployment.id} isActive={expanded} />
     </article>
   );

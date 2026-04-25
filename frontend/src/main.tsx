@@ -7,18 +7,17 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import { createQueryClient } from "./api/queries";
 import { App } from "./App";
 import { HomePage } from "./routes/index";
+import "./styles.css";
 
 const queryClient = createQueryClient();
 
 const rootRoute = createRootRoute({
   component: () => (
-    <div style={{ minHeight: "100vh", background: "#0f0f0f" }}>
+    <div className="shell">
       <App />
     </div>
   ),
@@ -46,8 +45,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-      <ReactQueryDevtools initialIsOpen={false} />
-      <TanStackRouterDevtools router={router} />
     </QueryClientProvider>
   </React.StrictMode>,
 );

@@ -96,25 +96,22 @@ export function LogViewer({ deploymentId, isActive }: Props) {
   }
 
   return (
-    <div style={{ marginTop: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-        <strong>Logs</strong>
+    <div className="log-panel">
+      <div className="log-panel__header">
+        <strong className="log-panel__title">Logs</strong>
         <button
           type="button"
           onClick={async () => navigator.clipboard.writeText(content)}
-          style={{ background: "#242424", color: "#fff", border: "1px solid #444", borderRadius: 6, padding: "4px 10px" }}
+          className="btn"
         >
           Copy
         </button>
       </div>
-      <div
-        ref={containerRef}
-        style={{ background: "#111", color: "#00ff88", fontFamily: "monospace", padding: 10, borderRadius: 8, maxHeight: 260, overflow: "auto" }}
-      >
+      <div ref={containerRef} className="log-console">
         {status === "connecting" ? "Connecting..." : null}
-        <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>{content}</pre>
-        {status === "done" ? "\nStream ended" : null}
-        {status === "error" ? "\nStream error" : null}
+        <pre>{content}</pre>
+        {status === "done" ? <span className="log-console__hint">{"\nStream ended"}</span> : null}
+        {status === "error" ? <span className="log-console__hint">{"\nStream error"}</span> : null}
       </div>
     </div>
   );

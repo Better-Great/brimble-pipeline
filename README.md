@@ -32,7 +32,7 @@ Caddy (localhost:80, admin:2019)
 - Docker
 - Docker Compose
 - Git
-- Node.js **20.19+** (or **22.12+**) for local frontend tooling (Vite 8); see `.nvmrc`
+- Node.js **22.12+** for local tooling (`.nvmrc` is pinned to `22.12.0`)
 
 ### Docker socket permissions (Linux)
 
@@ -66,7 +66,7 @@ stat -c '%g' /var/run/docker.sock
 This is optional; reviewers will primarily use Docker Compose.
 
 - **Backend**: `cd backend && npm install && npm run dev` (requires `POSTGRES_URL` pointing at a reachable Postgres)
-- **Frontend**: `cd frontend && npm install && npm run dev` (`vite` reads env from the repo root `.env` and requires `API_URL` for the `/api` proxy target)
+- **Frontend**: `cd frontend && npm install && npm run dev` (`vite` reads env from the repo root `.env` and proxies `/api` to `VITE_DEV_API_URL` (default `http://localhost`), falling back to `API_URL` when set)
 
 ## Automated tests
 
@@ -106,6 +106,7 @@ CI is defined in `.github/workflows/ci.yml` and runs on pushes to `main` plus al
 | `CADDY_ADMIN_URL` | Caddy admin API base URL | `http://caddy:2019` |
 | `CADDY_ADMIN_ORIGIN` | Origin header used for Caddy Admin API requests | `//0.0.0.0:2019` |
 | `API_URL` | Used for `vite dev` proxying + passed as a Docker build-arg for `vite build` | `http://backend:3000` |
+| `VITE_DEV_API_URL` | Preferred local `vite dev` proxy target for `/api` on host runs | `http://localhost` |
 | `CADDY_HTTP_PORT` | Host port published to Caddy `:80` | `80` |
 | `CADDY_ADMIN_PORT` | Host port published to Caddy admin `:2019` | `2019` |
 | `CADDY_SITE_ADDRESS` | Caddy site address (Caddyfile) | `:80` |

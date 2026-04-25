@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 ARG API_URL
 
@@ -19,7 +19,7 @@ ENV API_URL=${API_URL}
 
 RUN npm run build
 
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 
 ARG FRONTEND_APP_UID=10002
 ARG FRONTEND_APP_GID=10002

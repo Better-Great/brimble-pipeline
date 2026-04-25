@@ -10,28 +10,19 @@ const __dirname = path.dirname(__filename);
 export default defineConfig(({ command, mode }) => {
   const repoRootDir = path.resolve(__dirname, "..");
   const env = loadEnv(mode, repoRootDir, "");
-  const apiUrl = env.API_URL || process.env.API_URL || "";
-  if (command === "serve" && !apiUrl) {
-    throw new Error(
-      "API_URL is required for `vite dev` (set it in the repo root `.env`, copied from `.env.example`).",
-    );
-  }
+  const apiUrl = env.VITE_DEV_API_URL || env.API_URL || process.env.VITE_DEV_API_URL || process.env.API_URL || "http://localhost";
 
   return {
     envDir: repoRootDir,
     plugins: [react()],
     server: {
       port: 5173,
-      ...(apiUrl
-        ? {
-            proxy: {
-              "/api": {
-                target: apiUrl,
-                changeOrigin: true,
-              },
-            },
-          }
-        : {}),
+      proxy: {
+        "/api": {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+      },
     },
   };
 });

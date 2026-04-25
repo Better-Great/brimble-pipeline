@@ -32,60 +32,74 @@ export function DeployForm() {
   };
 
   return (
-    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
-      <input
-        required
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        placeholder="Deployment name"
-        style={{ padding: 10, borderRadius: 8, border: "1px solid #333", background: "#141414", color: "#fff" }}
-      />
-
-      <div style={{ display: "flex", gap: 12 }}>
-        <label>
+    <section className="card deploy-form-card">
+      <form onSubmit={onSubmit} className="deploy-form">
+        <div className="field">
+          <p className="label">Deployment name</p>
           <input
-            type="radio"
-            checked={sourceType === "git"}
-            onChange={() => setSourceType("git")}
-          />{" "}
-          Git URL
-        </label>
-        <label>
-          <input
-            type="radio"
-            checked={sourceType === "upload"}
-            onChange={() => setSourceType("upload")}
-          />{" "}
-          Upload ZIP
-        </label>
-      </div>
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Deployment name"
+            className="input"
+          />
+        </div>
 
-      {sourceType === "git" ? (
-        <input
-          required
-          value={sourceUrl}
-          onChange={(event) => setSourceUrl(event.target.value)}
-          placeholder="https://github.com/user/repo"
-          style={{ padding: 10, borderRadius: 8, border: "1px solid #333", background: "#141414", color: "#fff" }}
-        />
-      ) : (
-        <input
-          required
-          type="file"
-          accept=".zip"
-          onChange={(event) => setFile(event.target.files?.[0] || null)}
-        />
-      )}
+        <div className="source-toggle">
+          <label className="source-pill">
+            <input
+              type="radio"
+              checked={sourceType === "git"}
+              onChange={() => setSourceType("git")}
+            />
+            Git URL
+          </label>
+          <label className="source-pill">
+            <input
+              type="radio"
+              checked={sourceType === "upload"}
+              onChange={() => setSourceType("upload")}
+            />
+            Upload ZIP
+          </label>
+        </div>
 
-      <button
-        type="submit"
-        disabled={createDeployment.isPending}
-        style={{ padding: "10px 16px", borderRadius: 8, background: "#4c7dff", color: "#fff", border: "none" }}
-      >
-        {createDeployment.isPending ? "Deploying..." : "Deploy"}
-      </button>
+        {sourceType === "git" ? (
+          <div className="field">
+            <p className="label">Repository URL</p>
+            <input
+              required
+              value={sourceUrl}
+              onChange={(event) => setSourceUrl(event.target.value)}
+              placeholder="https://github.com/user/repo"
+              className="input"
+            />
+          </div>
+        ) : (
+          <div className="field">
+            <p className="label">Upload ZIP file</p>
+            <input
+              required
+              type="file"
+              accept=".zip"
+              onChange={(event) => setFile(event.target.files?.[0] || null)}
+              className="input"
+            />
+          </div>
+        )}
 
-      {errorMessage ? <p style={{ color: "#ff6666", margin: 0 }}>{errorMessage}</p> : null}
-    </form>
+        <div className="actions">
+          <button
+            type="submit"
+            disabled={createDeployment.isPending}
+            className="btn btn--primary"
+          >
+            {createDeployment.isPending ? "Deploying..." : "Deploy"}
+          </button>
+        </div>
+
+        {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
+      </form>
+    </section>
   );
 }

@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS build
+FROM node:22-bookworm-slim AS build
 
 ARG RAILPACK_VERSION=v0.23.0
 
@@ -35,7 +35,7 @@ RUN set -eux; \
 COPY src ./src
 RUN npm run build
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 ARG APP_UID=10001
 ARG APP_GID=10001
