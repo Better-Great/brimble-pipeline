@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:22-bookworm-slim AS deps
 
 ARG RAILPACK_VERSION=v0.23.0
 
@@ -32,8 +32,12 @@ RUN set -eux; \
   install -m 0755 "$bin" /usr/local/bin/railpack; \
   rm -rf /tmp/railpack-extract "$tmp"
 
+FROM deps AS build
+
+WORKDIR /app
 COPY src ./src
-RUN npm run build
+RUN npm run build \
+  && npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
 
@@ -52,9 +56,8 @@ COPY --from=build /usr/local/bin/railpack /usr/local/bin/railpack
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
-
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY src/db/migrations ./dist/db/migrations
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

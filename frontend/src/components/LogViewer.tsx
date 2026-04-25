@@ -14,8 +14,11 @@ type LogLine = {
 export function LogViewer({ deploymentId, isActive }: Props) {
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [status, setStatus] = useState<"connecting" | "streaming" | "done" | "error">("connecting");
+  const [isAutoScroll, setIsAutoScroll] = useState(true);
+  const [copyLabel, setCopyLabel] = useState("Copy");
   const containerRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+  const copyTimeoutRef = useRef<number | null>(null);
   const doneRef = useRef(false);
   const latestLineRef = useRef(0);
 
@@ -84,10 +87,27 @@ export function LogViewer({ deploymentId, isActive }: Props) {
   }, [deploymentId, isActive]);
 
   useEffect(() => {
-    if (containerRef.current) {
+    if (isAutoScroll && containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [logs]);
+  }, [isAutoScroll, logs]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current !== null) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const statusLabel =
+    status === "connecting"
+      ? "Connecting"
+      : status === "streaming"
+        ? "Live"
+        : status === "done"
+          ? "Completed"
+          : "Reconnecting";
 
   const content = useMemo(() => logs.map((line) => `${line.line}: ${line.content}`).join("\n"), [logs]);
 
@@ -98,20 +118,39 @@ export function LogViewer({ deploymentId, isActive }: Props) {
   return (
     <div className="log-panel">
       <div className="log-panel__header">
-        <strong className="log-panel__title">Logs</strong>
-        <button
-          type="button"
-          onClick={async () => navigator.clipboard.writeText(content)}
-          className="btn"
-        >
-          Copy
-        </button>
+        <div className="log-panel__heading">
+          <strong className="log-panel__title">Logs</strong>
+          <span className={`log-status log-status--${status}`}>{statusLabel}</span>
+          <span className="log-count">{logs.length} lines</span>
+        </div>
+        <div className="log-panel__actions">
+          <button type="button" className="btn" onClick={() => setIsAutoScroll((current) => !current)}>
+            {isAutoScroll ? "Auto-scroll: on" : "Auto-scroll: off"}
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              await navigator.clipboard.writeText(content);
+              setCopyLabel("Copied");
+              if (copyTimeoutRef.current !== null) {
+                clearTimeout(copyTimeoutRef.current);
+              }
+              copyTimeoutRef.current = window.setTimeout(() => {
+                setCopyLabel("Copy");
+              }, 1200);
+            }}
+            className="btn"
+          >
+            {copyLabel}
+          </button>
+        </div>
       </div>
       <div ref={containerRef} className="log-console">
-        {status === "connecting" ? "Connecting..." : null}
+        {status === "connecting" ? <span className="log-console__hint">Connecting...</span> : null}
+        {logs.length === 0 ? <span className="log-console__hint">Waiting for deployment logs...</span> : null}
         <pre>{content}</pre>
         {status === "done" ? <span className="log-console__hint">{"\nStream ended"}</span> : null}
-        {status === "error" ? <span className="log-console__hint">{"\nStream error"}</span> : null}
+        {status === "error" ? <span className="log-console__hint">{"\nStream interrupted, retrying..."}</span> : null}
       </div>
     </div>
   );

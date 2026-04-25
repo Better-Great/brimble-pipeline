@@ -24,6 +24,7 @@ describe("LogViewer", () => {
 
     expect(MockEventSource.instances[0]?.url).toBe("/api/deployments/dep-7/logs");
     expect(screen.getByText("Connecting...")).toBeInTheDocument();
+    expect(screen.getByText("Waiting for deployment logs...")).toBeInTheDocument();
 
     MockEventSource.instances[0]?.onmessage?.({
       data: JSON.stringify({ line: 1, content: "Building...", deploymentId: "dep-7" }),
@@ -41,7 +42,13 @@ describe("LogViewer", () => {
       expect(screen.getByText(/Stream ended/)).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Auto-scroll: on" }));
+    expect(screen.getByRole("button", { name: "Auto-scroll: off" })).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     expect(navigator.clipboard.writeText).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+    });
   });
 });

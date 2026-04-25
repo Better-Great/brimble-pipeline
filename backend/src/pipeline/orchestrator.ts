@@ -41,21 +41,23 @@ export async function runPipeline(deploymentId: string): Promise<void> {
     await mkdir(workDir, { recursive: true });
 
     await updateDeployment(deploymentId, { status: "building" });
+    let buildSourcePath = workDir;
     if (deployment.source_type === "git") {
       if (!deployment.source_url) {
         throw new Error("Missing source_url for git deployment.");
       }
       console.log("Cloning repo...");
-      await cloneRepo(deployment.source_url, workDir);
+      buildSourcePath = await cloneRepo(deployment.source_url, workDir);
     } else if (deployment.source_type === "upload") {
       console.log("Extracting zip...");
       await extractUploadZip(deploymentId, workDir);
+      buildSourcePath = workDir;
     } else {
       throw new Error("Unsupported source type.");
     }
 
     console.log("Building image with Railpack...");
-    const imageTag = await buildImage(deploymentId, workDir);
+    const imageTag = await buildImage(deploymentId, buildSourcePath);
     console.log(`Image built: ${imageTag}`);
 
     await updateDeployment(deploymentId, { status: "deploying", image_tag: imageTag });

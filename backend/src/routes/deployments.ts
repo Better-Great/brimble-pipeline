@@ -157,13 +157,14 @@ const deploymentsRoutes: FastifyPluginAsync = async (fastify) => {
         | "status"
         | "image_tag"
         | "url"
+        | "error_message"
         | "source_type"
         | "source_url"
         | "created_at"
         | "updated_at"
       >
     >(
-      `SELECT id, name, status, image_tag, url, source_type, source_url, created_at, updated_at
+      `SELECT id, name, status, image_tag, url, error_message, source_type, source_url, created_at, updated_at
        FROM deployments
        ORDER BY created_at DESC`,
     );

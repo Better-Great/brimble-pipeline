@@ -1,7 +1,6 @@
 {
   admin {$CADDY_ADMIN_LISTEN_ADDR} {
     origins *
-    enforce_origin false
   }
 }
 

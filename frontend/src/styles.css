@@ -296,11 +296,66 @@ a:hover {
 .log-panel__header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 8px;
+}
+
+.log-panel__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .log-panel__title {
   margin: 0;
+}
+
+.log-panel__actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.log-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+}
+
+.log-status--connecting {
+  color: #b6c6ea;
+  border-color: #395180;
+  background: #0f1d3a;
+}
+
+.log-status--streaming {
+  color: #b0ffd6;
+  border-color: #246443;
+  background: #10291d;
+}
+
+.log-status--done {
+  color: #c7d4f3;
+  border-color: #445278;
+  background: #151f38;
+}
+
+.log-status--error {
+  color: #ffc1d0;
+  border-color: #88445d;
+  background: #351626;
+}
+
+.log-count {
+  color: #9db0d9;
+  font-size: 0.84rem;
 }
 
 .log-console {
@@ -320,7 +375,9 @@ a:hover {
 }
 
 .log-console__hint {
+  display: block;
   color: #a9b9db;
+  margin-bottom: 4px;
 }
 
 @media (max-width: 680px) {
@@ -338,5 +395,18 @@ a:hover {
 
   .actions .btn {
     width: 100%;
+  }
+
+  .log-panel__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .log-panel__actions {
+    width: 100%;
+  }
+
+  .log-panel__actions .btn {
+    flex: 1;
   }
 }
